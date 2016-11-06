@@ -193,7 +193,7 @@ namespace PackageVisualizer
         {
             XNamespace ns = "http://schemas.microsoft.com/developer/msbuild/2003";
 
-            foreach (EnvDTE.Project project in _vsEnvironment.Solution.Projects)
+            foreach (EnvDTE.Project project in DteHelper.GetProjects(DteHelper.GetIVsSolution()))
             {
                 if (!string.IsNullOrEmpty(project.FullName)
                     &&
