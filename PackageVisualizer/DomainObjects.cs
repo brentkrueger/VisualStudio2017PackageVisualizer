@@ -11,7 +11,7 @@ namespace PackageVisualizer
         }
         public string Path { get; set; }
         public string Name { get; set; }
-        public List<Project> Projects { get; private set; }
+        private List<Project> Projects { get; set; }
         public List<NugetPackage> Packages { get; private set; }
     }
 

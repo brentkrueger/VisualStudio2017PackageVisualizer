@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="NugetPackageVisualizer.cc7ff7e3-f55f-474e-896c-2e16ca7393e7" Version="1.1" Language="en-US" Publisher="Brent Krueger" />
+    <Identity Id="NugetPackageVisualizer.cc7ff7e3-f55f-474e-896c-2e16ca7393e7" Version="1.2" Language="en-US" Publisher="Brent Krueger" />
     <DisplayName>Nuget Package Visualizer</DisplayName>
     <Description xml:space="preserve">Extension designed to mimick the functionality of the Nuget Package Visualizer from VS2013 and prior.</Description>
     <Icon>icon.png</Icon>

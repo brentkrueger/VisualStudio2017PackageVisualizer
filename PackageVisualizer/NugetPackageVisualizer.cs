@@ -19,6 +19,13 @@ namespace PackageVisualizer
         private readonly List<NugetPackage> _packageList = new List<NugetPackage>();
         private readonly string[] _projectExtensionExclusions = { ".vdproj", ".ndproj", ".wdproj", ".shfbproj", ".modelproj" };
         private readonly XNamespace _dgmlns = "http://schemas.microsoft.com/vs/2009/dgml";
+        private readonly string packageAttributeName = "Package";
+        private readonly string packageDependencyAttributeName = "Package Dependency";
+        private readonly string projectAttributeName = "Project";
+        private readonly string categoryAttributeName = "Category";
+        private readonly string idAttributeName = "Id";
+        private readonly string blueColorName = "Blue";
+        private readonly string yellowColorName = "Yellow";
 
         public NugetPackageVisualizer(DTE2 vsEnvironment)
         {
@@ -34,6 +41,7 @@ namespace PackageVisualizer
                 _dgmlns + "DirectedGraph", new XAttribute("GraphDirection", "LeftToRight"),
                 CreateNodes(),
                 CreateLinks(),
+                CreateCategories(),
                 CreateStyles());
 
             var doc = new XDocument(graph);
@@ -44,14 +52,26 @@ namespace PackageVisualizer
         private XElement CreateStyles()
         {
             return new XElement(_dgmlns + "Styles",
-                CreateStyle("Project", "Blue"),
-                CreateStyle("Package", "White"));
+                CreateStyle(projectAttributeName, blueColorName, "Node"),
+                CreateStyle(packageDependencyAttributeName, yellowColorName, "Link"));
+        }
+
+        private XElement CreateCategories()
+        {
+            return new XElement(_dgmlns + "Categories",
+                CreateCategory(projectAttributeName),
+                CreateCategory(packageAttributeName));
+        }
+
+        private XElement CreateCategory(string id)
+        {
+            return new XElement(_dgmlns + categoryAttributeName, new XAttribute(idAttributeName, id));
         }
 
         private XElement CreateNodes()
         {
-            return new XElement(_dgmlns + "Nodes", _projectList.Select(p => CreateNode(p.Name, "Project")),
-                _packageList.Select(p => CreateNode(p.Name + " " + p.Version, "Package")));
+            return new XElement(_dgmlns + "Nodes", _projectList.Select(p => CreateNode(p.Name, projectAttributeName)),
+                _packageList.Select(p => CreateNode(p.Name + " " + p.Version, packageAttributeName)));
         }
 
         private XElement CreateLinks()
@@ -83,7 +103,7 @@ namespace PackageVisualizer
             */
 
             var packageLinksToAdd =
-                linkElements.Where(e => e.Attribute("Category").Value.Equals(installedPackageCategory)).ToList();
+                linkElements.Where(e => e.Attribute(categoryAttributeName).Value.Equals(installedPackageCategory)).ToList();
 
             var elementsToRemove = new List<XElement>();
             foreach (var link in packageLinksToAdd)
@@ -137,8 +157,10 @@ namespace PackageVisualizer
                 }
             }
         }
-
-        /* Given a project link, iterate through all packages for that project, to determine if the link is direct, or is part of another dependency.
+        
+        private bool ProjectLinkIsDirectDependency(XElement projectLink, IEnumerable<ProjectNugetPackage> packages)
+        {
+            /* Given a project link, iterate through all packages for that project, to determine if the link is direct, or is part of another dependency.
         example:
 
         ThisIsAnExample.Project.Name 
@@ -150,8 +172,7 @@ namespace PackageVisualizer
             and not to WebGrease 1.6.0 or Antlr 3.4.1.9004, because those are part of Microsoft.AspNet.Web.Optimization's dependencies
 
         */
-        private bool ProjectLinkIsDirectDependency(XElement projectLink, IEnumerable<ProjectNugetPackage> packages)
-        {
+
             var packageInfo = projectLink.GetTarget().Split(' ');
             var linkPackageName = packageInfo[0];
             var linkPackageVersion = packageInfo[1];
@@ -170,21 +191,20 @@ namespace PackageVisualizer
 
             return true;
         }
-        private XElement CreateNode(string name, string category, string label = null, string group = null)
+        private XElement CreateNode(string name, string category)
         {
-            var labelAtt = label != null ? new XAttribute("Label", label) : null;
-            var groupAtt = group != null ? new XAttribute("Group", group) : null;
-            return new XElement(_dgmlns + "Node", new XAttribute("Id", name), labelAtt, groupAtt, new XAttribute("Category", category));
+            var labelAtt = new XAttribute("Label", name);
+            return new XElement(_dgmlns + "Node", new XAttribute(idAttributeName, name), labelAtt, new XAttribute(categoryAttributeName, category));
         }
 
         private XElement CreateLink(string source, string target, string category)
         {
-            return new XElement(_dgmlns + "Link", new XAttribute("Source", source), new XAttribute("Target", target), new XAttribute("Category", category));
+            return new XElement(_dgmlns + "Link", new XAttribute("Source", source), new XAttribute("Target", target), new XAttribute(categoryAttributeName, category));
         }
 
-        private XElement CreateStyle(string label, string color)
+        private XElement CreateStyle(string label, string color, string targetType)
         {
-            return new XElement(_dgmlns + "Style", new XAttribute("TargetType", "Node"), new XAttribute("GroupLabel", label), new XAttribute("ValueLabel", "True"),
+            return new XElement(_dgmlns + "Style", new XAttribute("TargetType", targetType), new XAttribute("GroupLabel", label), new XAttribute("ValueLabel", "True"),
                 new XElement(_dgmlns + "Condition", new XAttribute("Expression", "HasCategory('" + label + "')")),
                 new XElement(_dgmlns + "Setter", new XAttribute("Property", "Background"), new XAttribute("Value", color)));
         }
@@ -221,7 +241,7 @@ namespace PackageVisualizer
                 {
                     foreach (var pr in XDocument.Load(pk).Descendants("package"))
                     {
-                        var package = GetOrCreatePackage(pr.Attribute("id").Value, pr.Attribute("version").Value, project);
+                        var package = GetOrCreatePackage(pr.Attribute(idAttributeName.ToLower()).Value, pr.Attribute("version").Value, project);
                         if (!project.Packages.Any(p => p.Equals(package)))
                         {
                             project.Packages.Add(package);
