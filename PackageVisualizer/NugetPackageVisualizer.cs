@@ -70,7 +70,7 @@ namespace PackageVisualizer
             */
             foreach (var package in allPackages)
             {
-                var packageDependencies = GetPackageDependencies(package.Package.Name, package.Package.Version);
+                var packageDependencies = GetPackageDependencies(package.Package.Name, package.Package.Version, package.Project);
                 foreach (var packageDependency in packageDependencies)
                 {
                     linkElements.Add(CreateLink(
@@ -154,7 +154,7 @@ namespace PackageVisualizer
 
             foreach (var package in packages.Where(p => p.Project.Name.Equals(projectLink.GetSource(), StringComparison.InvariantCultureIgnoreCase)))
             {
-                var dependencies = GetPackageDependencies(package.Package.Name, package.Package.Version);
+                var dependencies = GetPackageDependencies(package.Package.Name, package.Package.Version, package.Project);
                 if (dependencies.Any(d => d.Name.Equals(linkPackageName, StringComparison.InvariantCultureIgnoreCase)
                                           &&
                                           d.Version.Equals(linkPackageVersion,
@@ -218,7 +218,7 @@ namespace PackageVisualizer
                 {
                     foreach (var pr in XDocument.Load(pk).Descendants("package"))
                     {
-                        var package = GetOrCreatePackage(pr.Attribute("id").Value, pr.Attribute("version").Value);
+                        var package = GetOrCreatePackage(pr.Attribute("id").Value, pr.Attribute("version").Value, project);
                         if (!project.Packages.Any(p => p.Equals(package)))
                         {
                             project.Packages.Add(package);
@@ -232,15 +232,15 @@ namespace PackageVisualizer
 
         #region Domain Objects
 
-        private NugetPackage GetOrCreatePackage(string name, string version)
+        private NugetPackage GetOrCreatePackage(string name, string version, Project project)
         {
             var p = _packageList.SingleOrDefault(l => l.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase) && 
             l.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase));
-            if (p == null) { p = new NugetPackage { Name = name, Version = version, PackageDependencies = GetPackageDependencies(name, version) }; _packageList.Add(p); }
+            if (p == null) { p = new NugetPackage { Name = name, Version = version, PackageDependencies = GetPackageDependencies(name, version, project) }; _packageList.Add(p); }
             return p;
         }
 
-        private IEnumerable<NugetPackage> GetPackageDependencies(string name, string version)
+        private IEnumerable<NugetPackage> GetPackageDependencies(string name, string version, Project project)
         {
             const string keyDelimiter = "@@@";
             var mapping = _packageList.ToDictionary(c => c.Name + keyDelimiter + c.Version, StringComparer.InvariantCultureIgnoreCase);
@@ -253,7 +253,20 @@ namespace PackageVisualizer
 
                 foreach (var dependency in package.GetCompatiblePackageDependencies(null))
                 {
-                    var key = mapping.Keys.SingleOrDefault(k => k.StartsWith(dependency.Id + keyDelimiter, StringComparison.InvariantCultureIgnoreCase));
+                    var keys = mapping.Keys.Where(k => k.StartsWith(dependency.Id + keyDelimiter, StringComparison.InvariantCultureIgnoreCase));
+
+                    string key=null;
+
+                    if (keys.Count().Equals(1))
+                    {
+                        key = keys.First();
+                    }
+                    else if (keys.Count() > 1 && project != null) //if we have multiple packages with various versions, figure out which version is being used for this project
+                    {
+                        var projectPackage = project.Packages.First(k => k.Name.StartsWith(dependency.Id, StringComparison.InvariantCultureIgnoreCase));
+                        key= keys.First(k => k.Equals(dependency.Id + keyDelimiter + projectPackage.Version, StringComparison.InvariantCultureIgnoreCase));
+                    }
+
                     if (key != null)
                     {
                         var dependentPackage = mapping[key];
