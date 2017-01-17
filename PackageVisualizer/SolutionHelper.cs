@@ -9,26 +9,21 @@ namespace PackageVisualizer
     /// <summary>
     /// http://stackoverflow.com/questions/22705089/how-to-get-list-of-projects-in-current-visual-studio-solution
     /// </summary>
-    internal static class DteHelper
+    internal class SolutionHelper
     {
-        public static IVsSolution GetIVsSolution() => (IVsSolution)Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(IVsSolution));
+        public IVsSolution GetSolution() => (IVsSolution)Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(IVsSolution));
 
-        public static IEnumerable<EnvDTE.Project> GetProjects(IVsSolution solution)
+        public IEnumerable<EnvDTE.Project> GetProjects(IVsSolution solution)
         {
             foreach (IVsHierarchy hier in GetProjectsInSolution(solution))
             {
-                EnvDTE.Project project = GetDTEProject(hier);
+                EnvDTE.Project project = GetProject(hier);
                 if (project != null)
                     yield return project;
             }
         }
 
-        public static IEnumerable<IVsHierarchy> GetProjectsInSolution(IVsSolution solution)
-        {
-            return GetProjectsInSolution(solution, __VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION);
-        }
-
-        public static IEnumerable<IVsHierarchy> GetProjectsInSolution(IVsSolution solution, __VSENUMPROJFLAGS flags)
+        private IEnumerable<IVsHierarchy> GetProjectsInSolution(IVsSolution solution, __VSENUMPROJFLAGS flags = __VSENUMPROJFLAGS.EPF_LOADEDINSOLUTION)
         {
             if (solution == null)
                 yield break;
@@ -48,10 +43,10 @@ namespace PackageVisualizer
             }
         }
 
-        public static EnvDTE.Project GetDTEProject(IVsHierarchy hierarchy)
+        private EnvDTE.Project GetProject(IVsHierarchy hierarchy)
         {
             if (hierarchy == null)
-                throw new ArgumentNullException("hierarchy");
+                throw new ArgumentNullException(nameof(hierarchy));
 
             object obj;
             hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_ExtObject, out obj);

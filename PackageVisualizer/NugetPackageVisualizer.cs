@@ -14,7 +14,6 @@ namespace PackageVisualizer
     /// </summary>
     public class NugetPackageVisualizer
     {
-        private readonly DTE2 _vsEnvironment;
         private readonly string _solutionFolder;
         private readonly List<Project> _projectList = new List<Project>();
         private readonly List<NugetPackage> _packageList = new List<NugetPackage>();
@@ -23,7 +22,6 @@ namespace PackageVisualizer
 
         public NugetPackageVisualizer(DTE2 vsEnvironment)
         {
-            _vsEnvironment = vsEnvironment;
             _solutionFolder = Path.GetDirectoryName(vsEnvironment.Solution.FullName);
         }
 
@@ -61,8 +59,67 @@ namespace PackageVisualizer
             var linkElements = new List<XElement>();
             var allPackages = _projectList.SelectMany(p => p.Packages.Select(pa => new ProjectNugetPackage { Project = p, Package = pa }));
 
-            #region Add Package Dependency Links
+            AddPackageDependencyLinks(allPackages, linkElements);
 
+            var installedPackageCategory = AddInstalledPackageLinks(allPackages, linkElements);
+
+            RemoveDirectPackageLinks(linkElements, installedPackageCategory, allPackages);
+
+            return new XElement(_dgmlns + "Links", linkElements);
+        }
+
+        private void RemoveDirectPackageLinks(List<XElement> linkElements, string installedPackageCategory, IEnumerable<ProjectNugetPackage> allPackages)
+        {
+            /*now we need to iterate through all the installed package links, to remove links that are not directly referenced under the project
+            example:
+
+            ThisIsAnExample.Project.Name 
+                has a package dependency on Microsoft.AspNet.Web.Optimization 1.1.3
+                    which has a package dependency on WebGrease 1.6.0
+                        which has a package dependency on Antlr 3.4.1.9004
+                        
+            So in this example, ThisIsAnExample.Project.Name only has a link directly to Microsoft.AspNet.Web.Optimization 1.1.3, 
+            and not to WebGrease 1.6.0 or Antlr 3.4.1.9004, because those are part of Microsoft.AspNet.Web.Optimization's dependencies
+            */
+
+            var packageLinksToAdd =
+                linkElements.Where(e => e.Attribute("Category").Value.Equals(installedPackageCategory)).ToList();
+
+            var elementsToRemove = new List<XElement>();
+            foreach (var link in packageLinksToAdd)
+            {
+                //remove any links that are not directly under the project (see comment above)
+                if (!ProjectLinkIsDirectDependency(link, allPackages))
+                {
+                    elementsToRemove.Add(link);
+                }
+            }
+
+            foreach (var elementToRemove in elementsToRemove)
+            {
+                linkElements.Remove(elementToRemove);
+            }
+        }
+
+        private string AddInstalledPackageLinks(IEnumerable<ProjectNugetPackage> allPackages, List<XElement> linkElements)
+        {
+            /*for each nuget package installed under a project, create a installed package link for it
+            example:
+            <Link Source="ThisIsAnExample.Project.Name" Target="AutoFixture.AutoMoq 3.30.4" Category="Installed Package" />
+            */
+            const string installedPackageCategory = "Installed Package";
+            foreach (var installedPackage in allPackages)
+            {
+                var packageId = installedPackage.Package.Name + " " + installedPackage.Package.Version;
+                var link = CreateLink(installedPackage.Project.Name, packageId, installedPackageCategory);
+                linkElements.Add(link);
+            }
+
+            return installedPackageCategory;
+        }
+
+        private void AddPackageDependencyLinks(IEnumerable<ProjectNugetPackage> allPackages, List<XElement> linkElements)
+        {
             /*for each nuget package referenced under a project, get all of its dependencies and create a package dependency link for each
             example:
             <Link Source="Microsoft.AspNet.WebPages 3.2.3" Target="Microsoft.AspNet.Razor 3.2.3" Category="Package Dependency" />
@@ -79,59 +136,6 @@ namespace PackageVisualizer
                         "Package Dependency"));
                 }
             }
-
-            #endregion
-
-            #region Add Installed Package Links
-
-            /*for each nuget package installed under a project, create a installed package link for it
-            example:
-            <Link Source="ThisIsAnExample.Project.Name" Target="AutoFixture.AutoMoq 3.30.4" Category="Installed Package" />
-            */
-            const string installedPackageCategory = "Installed Package";
-            foreach (var installedPackage in allPackages)
-            {
-                var packageId = installedPackage.Package.Name + " " + installedPackage.Package.Version;
-                var link = CreateLink(installedPackage.Project.Name, packageId, installedPackageCategory);
-                linkElements.Add(link);
-            }
-
-            #endregion
-
-            #region Remove Installed Package Links where dependencies are not directly under project
-
-            /*now we need to iterate through all the installed package links, to remove links that are not directly referenced under the project
-            example:
-
-            ThisIsAnExample.Project.Name 
-                has a package dependency on Microsoft.AspNet.Web.Optimization 1.1.3
-                    which has a package dependency on WebGrease 1.6.0
-                        which has a package dependency on Antlr 3.4.1.9004
-                        
-            So in this example, ThisIsAnExample.Project.Name only has a link directly to Microsoft.AspNet.Web.Optimization 1.1.3, 
-            and not to WebGrease 1.6.0 or Antlr 3.4.1.9004, because those are part of Microsoft.AspNet.Web.Optimization's dependencies
-            */
-
-            var packageLinksToAdd = linkElements.Where(e => e.Attribute("Category").Value.Equals(installedPackageCategory)).ToList();
-
-            var elementsToRemove = new List<XElement>();
-            foreach (var link in packageLinksToAdd)
-            {
-                //remove any links that are not directly under the project (see comment above)
-                if (!ProjectLinkIsDirectDependency(link, allPackages))
-                {
-                    elementsToRemove.Add(link);
-                }
-            }
-
-            foreach (var elementToRemove in elementsToRemove)
-            {
-                linkElements.Remove(elementToRemove);
-            }
-
-            #endregion
-
-            return new XElement(_dgmlns + "Links", linkElements);
         }
 
         /* Given a project link, iterate through all packages for that project, to determine if the link is direct, or is part of another dependency.
@@ -166,10 +170,10 @@ namespace PackageVisualizer
 
             return true;
         }
-        private XElement CreateNode(string name, string category, string label = null, string @group = null)
+        private XElement CreateNode(string name, string category, string label = null, string group = null)
         {
             var labelAtt = label != null ? new XAttribute("Label", label) : null;
-            var groupAtt = @group != null ? new XAttribute("Group", @group) : null;
+            var groupAtt = group != null ? new XAttribute("Group", group) : null;
             return new XElement(_dgmlns + "Node", new XAttribute("Id", name), labelAtt, groupAtt, new XAttribute("Category", category));
         }
 
@@ -191,9 +195,8 @@ namespace PackageVisualizer
 
         private void LoadProjects()
         {
-            XNamespace ns = "http://schemas.microsoft.com/developer/msbuild/2003";
-
-            foreach (EnvDTE.Project project in DteHelper.GetProjects(DteHelper.GetIVsSolution()))
+            var dteHelper = new SolutionHelper();
+            foreach (EnvDTE.Project project in dteHelper.GetProjects(dteHelper.GetSolution()))
             {
                 if (!string.IsNullOrEmpty(project.FullName)
                     &&
