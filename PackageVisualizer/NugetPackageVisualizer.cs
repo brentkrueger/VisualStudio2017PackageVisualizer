@@ -103,7 +103,7 @@ namespace PackageVisualizer
 
         private string AddInstalledPackageLinks(IEnumerable<ProjectNugetPackage> allPackages, List<XElement> linkElements)
         {
-            /*for each nuget package installed under a project, create a installed package link for it
+            /*for each nuget package installed under a project, create an installed package link for it
             example:
             <Link Source="ThisIsAnExample.Project.Name" Target="AutoFixture.AutoMoq 3.30.4" Category="Installed Package" />
             */
