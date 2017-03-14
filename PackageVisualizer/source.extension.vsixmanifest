@@ -1,19 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="NugetPackageVisualizer.cc7ff7e3-f55f-474e-896c-2e16ca7393e7" Version="1.2" Language="en-US" Publisher="Brent Krueger" />
+    <Identity Id="NugetPackageVisualizer.cc7ff7e3-f55f-474e-896c-2e16ca7393e7" Version="1.0" Language="en-US" Publisher="Brent Krueger" />
     <DisplayName>Nuget Package Visualizer</DisplayName>
     <Description xml:space="preserve">Extension designed to mimick the functionality of the Nuget Package Visualizer from VS2013 and prior.</Description>
     <Icon>icon.png</Icon>
   </Metadata>
   <Installation>
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[14.0]" />
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[15.0]" />
   </Installation>
   <Dependencies>
-    <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.5,)" />
-    <Dependency Id="Microsoft.VisualStudio.MPF.14.0" DisplayName="Visual Studio MPF 14.0" d:Source="Installed" Version="[14.0]" />
+    <Dependency d:Source="Manual" DisplayName="Microsoft .NET Framework" Id="Microsoft.Framework.NDP" Version="[4.6.1,)" />
+    <Dependency d:Source="Installed" Id="Microsoft.VisualStudio.MPF.15.0" DisplayName="Visual Studio MPF 15.0" Version="[15.0,16.0)" />
   </Dependencies>
   <Assets>
     <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />
   </Assets>
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.Net.Component.4.6.1.TargetingPack" Version="[15.0.26208.0,16.0)" DisplayName=".NET Framework 4.6.1 targeting pack" />
+  </Prerequisites>
 </PackageManifest>
