@@ -247,6 +247,13 @@ namespace PackageVisualizer
                             project.Packages.Add(package);
                         }
                     }
+
+                    //spin through packages again to set package dependencies
+                    foreach (var projectPackage in project.Packages)
+                    {
+                        projectPackage.PackageDependencies =
+                            GetPackageDependencies(projectPackage.Name, projectPackage.Version, project);
+                    }
                 }
             }
         }
@@ -259,7 +266,11 @@ namespace PackageVisualizer
         {
             var p = _packageList.SingleOrDefault(l => l.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase) && 
             l.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase));
-            if (p == null) { p = new NugetPackage { Name = name, Version = version, PackageDependencies = GetPackageDependencies(name, version, project) }; _packageList.Add(p); }
+            if (p == null)
+            {
+                p = new NugetPackage {Name = name, Version = version};
+                _packageList.Add(p);
+            }
             return p;
         }
 
@@ -293,11 +304,17 @@ namespace PackageVisualizer
                     if (key != null)
                     {
                         var dependentPackage = mapping[key];
-                        dependencies.Add(new NugetPackage
+
+                        if (
+                            !dependencies.Any(
+                                d => d.Name.Equals(dependentPackage.Name) && d.Version.Equals(dependentPackage.Version)))
                         {
-                            Name = dependentPackage.Name,
-                            Version = dependentPackage.Version
-                        });
+                            dependencies.Add(new NugetPackage
+                            {
+                                Name = dependentPackage.Name,
+                                Version = dependentPackage.Version
+                            });
+                        }
                     }
                 }
             }
