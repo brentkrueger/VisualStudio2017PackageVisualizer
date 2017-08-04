@@ -297,8 +297,9 @@ namespace PackageVisualizer
                     }
                     else if (keys.Count() > 1 && project != null) //if we have multiple packages with various versions, figure out which version is being used for this project
                     {
-                        var projectPackage = project.Packages.First(k => k.Name.StartsWith(dependency.Id, StringComparison.InvariantCultureIgnoreCase));
-                        key= keys.First(k => k.Equals(dependency.Id + keyDelimiter + projectPackage.Version, StringComparison.InvariantCultureIgnoreCase));
+                        var projectPackage = project.Packages.FirstOrDefault(k => k.Name.StartsWith(dependency.Id, StringComparison.InvariantCultureIgnoreCase));
+                        if (projectPackage != null)
+                            key = keys.FirstOrDefault(k => k.Equals(dependency.Id + keyDelimiter + projectPackage.Version, StringComparison.InvariantCultureIgnoreCase));
                     }
 
                     if (key != null)
