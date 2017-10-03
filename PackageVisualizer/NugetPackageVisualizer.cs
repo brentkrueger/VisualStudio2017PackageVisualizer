@@ -24,6 +24,7 @@ namespace PackageVisualizer
         private readonly string projectAttributeName = "Project";
         private readonly string categoryAttributeName = "Category";
         private readonly string idAttributeName = "Id";
+        private readonly string includeAttributeName = "Include";
         private readonly string blueColorName = "Blue";
         private readonly string yellowColorName = "Yellow";
 
@@ -36,6 +37,7 @@ namespace PackageVisualizer
         {
             LoadProjects();
             LoadPackageConfigs();
+            LoadPackageReferenceConfigs();
 
             var graph = new XElement(
                 _dgmlns + "DirectedGraph", new XAttribute("GraphDirection", "LeftToRight"),
@@ -242,6 +244,36 @@ namespace PackageVisualizer
                     foreach (var pr in XDocument.Load(pk).Descendants("package"))
                     {
                         var package = GetOrCreatePackage(pr.Attribute(idAttributeName.ToLower()).Value, pr.Attribute("version").Value, project);
+                        if (!project.Packages.Any(p => p.Equals(package)))
+                        {
+                            project.Packages.Add(package);
+                        }
+                    }
+
+                    //spin through packages again to set package dependencies
+                    foreach (var projectPackage in project.Packages)
+                    {
+                        projectPackage.PackageDependencies =
+                            GetPackageDependencies(projectPackage.Name, projectPackage.Version, project);
+                    }
+                }
+            }
+        }
+
+        private void LoadPackageReferenceConfigs()
+        {
+            foreach (var pk in Directory.GetFiles(_solutionFolder, "*.csproj", SearchOption.AllDirectories))
+            {
+                var project = _projectList.SingleOrDefault(p => Path.GetDirectoryName(p.Path).Equals(Path.GetDirectoryName(pk), StringComparison.InvariantCultureIgnoreCase));
+                if (project == null)
+                {
+                    ("Project not found in same folder than package " + pk).Dump();
+                }
+                else
+                {
+                    foreach (var pr in XDocument.Load(pk).Descendants("PackageReference"))
+                    {
+                        var package = GetOrCreatePackage(pr.Attribute(includeAttributeName).Value, pr.Attribute("Version").Value, project);
                         if (!project.Packages.Any(p => p.Equals(package)))
                         {
                             project.Packages.Add(package);
