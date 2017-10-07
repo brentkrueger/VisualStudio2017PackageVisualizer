@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using EnvDTE80;
 using NuGet;
@@ -14,6 +15,7 @@ namespace PackageVisualizer
     /// </summary>
     public class NugetPackageVisualizer
     {
+        private readonly Regex _filterRegex;
         private readonly string _solutionFolder;
         private readonly List<Project> _projectList = new List<Project>();
         private readonly List<NugetPackage> _packageList = new List<NugetPackage>();
@@ -28,16 +30,17 @@ namespace PackageVisualizer
         private readonly string blueColorName = "Blue";
         private readonly string yellowColorName = "Yellow";
 
-        public NugetPackageVisualizer(DTE2 vsEnvironment)
+        public NugetPackageVisualizer(DTE2 vsEnvironment, string packageFilter)
         {
+            _filterRegex = new Regex(packageFilter, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             _solutionFolder = Path.GetDirectoryName(vsEnvironment.Solution.FullName);
         }
 
         public void GenerateDgmlFile(string filename)
         {
             LoadProjects();
-            LoadPackageConfigs();
-            LoadPackageReferenceConfigs();
+            LoadPackageConfig("packages.config", "package", idAttributeName.ToLower(), "version");
+            LoadPackageConfig("*.csproj", "PackageReference", includeAttributeName, "Version");
 
             var graph = new XElement(
                 _dgmlns + "DirectedGraph", new XAttribute("GraphDirection", "LeftToRight"),
@@ -229,9 +232,9 @@ namespace PackageVisualizer
             }
         }
 
-        private void LoadPackageConfigs()
+        private void LoadPackageConfig(string packageConfigFile, string packageElementName, string packageIdElement, string packageVersionElement)
         {
-            foreach (var pk in Directory.GetFiles(_solutionFolder, "packages.config", SearchOption.AllDirectories)
+            foreach (var pk in Directory.GetFiles(_solutionFolder, packageConfigFile, SearchOption.AllDirectories)
                 .Where(pc => !pc.Contains(".nuget")))
             {
                 var project = _projectList.SingleOrDefault(p => Path.GetDirectoryName(p.Path).Equals(Path.GetDirectoryName(pk), StringComparison.InvariantCultureIgnoreCase));
@@ -241,50 +244,17 @@ namespace PackageVisualizer
                 }
                 else
                 {
-                    foreach (var pr in XDocument.Load(pk).Descendants("package"))
+                    foreach (var pr in XDocument.Load(pk).Descendants(packageElementName))
                     {
-                        var package = GetOrCreatePackage(pr.Attribute(idAttributeName.ToLower()).Value, pr.Attribute("version").Value, project);
-                        if (!project.Packages.Any(p => p.Equals(package)))
-                        {
-                            project.Packages.Add(package);
-                        }
-                    }
+                        var packageName = pr.Attribute(packageIdElement).Value;
+                        var packageVersion = pr.Attribute(packageVersionElement).Value;
+                        if (!_filterRegex.IsMatch(packageName)) continue;
+                        
+                        var package = GetOrCreatePackage(packageName, packageVersion);
+                        if (project.Packages.Any(p => p.Equals(package))) continue;
 
-                    //spin through packages again to set package dependencies
-                    foreach (var projectPackage in project.Packages)
-                    {
-                        projectPackage.PackageDependencies =
-                            GetPackageDependencies(projectPackage.Name, projectPackage.Version, project);
-                    }
-                }
-            }
-        }
-
-        private void LoadPackageReferenceConfigs()
-        {
-            foreach (var pk in Directory.GetFiles(_solutionFolder, "*.csproj", SearchOption.AllDirectories))
-            {
-                var project = _projectList.SingleOrDefault(p => Path.GetDirectoryName(p.Path).Equals(Path.GetDirectoryName(pk), StringComparison.InvariantCultureIgnoreCase));
-                if (project == null)
-                {
-                    ("Project not found in same folder than package " + pk).Dump();
-                }
-                else
-                {
-                    foreach (var pr in XDocument.Load(pk).Descendants("PackageReference"))
-                    {
-                        var package = GetOrCreatePackage(pr.Attribute(includeAttributeName).Value, pr.Attribute("Version").Value, project);
-                        if (!project.Packages.Any(p => p.Equals(package)))
-                        {
-                            project.Packages.Add(package);
-                        }
-                    }
-
-                    //spin through packages again to set package dependencies
-                    foreach (var projectPackage in project.Packages)
-                    {
-                        projectPackage.PackageDependencies =
-                            GetPackageDependencies(projectPackage.Name, projectPackage.Version, project);
+                        package.PackageDependencies = GetPackageDependencies(package.Name, package.Version, project);
+                        project.Packages.Add(package);
                     }
                 }
             }
@@ -294,7 +264,7 @@ namespace PackageVisualizer
 
         #region Domain Objects
 
-        private NugetPackage GetOrCreatePackage(string name, string version, Project project)
+        private NugetPackage GetOrCreatePackage(string name, string version)
         {
             var p = _packageList.SingleOrDefault(l => l.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase) && 
             l.Version.Equals(version, StringComparison.InvariantCultureIgnoreCase));
