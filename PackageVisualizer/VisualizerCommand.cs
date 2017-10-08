@@ -6,7 +6,6 @@ using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using PackageVisualizer.Design;
 
 namespace PackageVisualizer
 {
@@ -23,8 +22,6 @@ namespace PackageVisualizer
         /// Command ID.
         /// </summary>
         private const int CommandId = 0x0100;
-        private const int FilterCommandId = 0x1100;
-        private const int MenuId = 0x1020;
 
         /// <summary>
         /// Command menu group (command set GUID).
@@ -52,17 +49,9 @@ namespace PackageVisualizer
             OleMenuCommandService commandService = ServiceProvider.GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (commandService != null)
             {
-                var menuCommandId = new CommandID(CommandSet, MenuId);
-                var menuItem = new MenuCommand(null, menuCommandId);
+                var menuCommandId = new CommandID(CommandSet, CommandId);
+                var menuItem = new MenuCommand(CreatePackageDiagram, menuCommandId);
                 commandService.AddCommand(menuItem);
-
-                var commandId = new CommandID(CommandSet, CommandId);
-                var commandItem = new MenuCommand((s, e) => CreatePackageDiagram(false), commandId);
-                commandService.AddCommand(commandItem);
-
-                var filterCommandId = new CommandID(CommandSet, FilterCommandId);
-                var filterCommandItem = new MenuCommand((s, e) => CreatePackageDiagram(true), filterCommandId);
-                commandService.AddCommand(filterCommandItem);
             }
         }
 
@@ -80,7 +69,8 @@ namespace PackageVisualizer
         }
 
         #endregion
-        private void CreatePackageDiagram(bool filter)
+
+        private void CreatePackageDiagram(object sender, EventArgs e)
         {
             var vsEnvironment = Package.GetGlobalService(typeof(DTE)) as DTE2;
             var solutionFullName = vsEnvironment.Solution.FullName;
@@ -88,18 +78,7 @@ namespace PackageVisualizer
             {
                 if (SolutionIsLoaded(vsEnvironment.Solution))
                 {
-                    var packageFilter = ".*";
-                    if (filter)
-                    {
-                        var dialog = new FilterDialog();
-                        dialog.ShowDialog();
-
-                        var suppliedFilter = ((FilterViewModel) dialog.DataContext).PackageFilter;
-                        if(!string.IsNullOrWhiteSpace(suppliedFilter))
-                            packageFilter = suppliedFilter;
-                    }
-
-                    var visualizer = new NugetPackageVisualizer(vsEnvironment, packageFilter);
+                    var visualizer = new NugetPackageVisualizer(vsEnvironment);
                     var dgmlFilePath = Path.GetDirectoryName(solutionFullName) + @"\NugetVisualizerOutput.dgml";
                     visualizer.GenerateDgmlFile(dgmlFilePath);
                     vsEnvironment.ItemOperations.OpenFile(dgmlFilePath);
