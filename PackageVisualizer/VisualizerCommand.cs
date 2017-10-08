@@ -99,9 +99,10 @@ namespace PackageVisualizer
                             packageFilter = suppliedFilter;
                     }
 
-                    var visualizer = new NugetPackageVisualizer(vsEnvironment, packageFilter);
+                    var visualizer = new NugetPackageVisualizer(vsEnvironment);
                     var dgmlFilePath = Path.GetDirectoryName(solutionFullName) + @"\NugetVisualizerOutput.dgml";
-                    visualizer.GenerateDgmlFile(dgmlFilePath);
+
+                    visualizer.GenerateDgmlFile(dgmlFilePath, packageFilter);
                     vsEnvironment.ItemOperations.OpenFile(dgmlFilePath);
                 }
                 else
@@ -127,7 +128,7 @@ namespace PackageVisualizer
             }
         }
         
-        private bool SolutionIsLoaded(Solution solution)
+        private static bool SolutionIsLoaded(Solution solution)
         {
             try
             {

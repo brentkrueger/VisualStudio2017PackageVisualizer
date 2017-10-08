@@ -15,7 +15,7 @@ namespace PackageVisualizer
     /// </summary>
     public class NugetPackageVisualizer
     {
-        private readonly Regex _filterRegex;
+        private Regex _filterRegex;
         private readonly string _solutionFolder;
         private readonly List<Project> _projectList = new List<Project>();
         private readonly List<NugetPackage> _packageList = new List<NugetPackage>();
@@ -30,14 +30,15 @@ namespace PackageVisualizer
         private readonly string blueColorName = "Blue";
         private readonly string yellowColorName = "Yellow";
 
-        public NugetPackageVisualizer(DTE2 vsEnvironment, string packageFilter)
+        public NugetPackageVisualizer(DTE2 vsEnvironment)
         {
-            _filterRegex = new Regex(packageFilter, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             _solutionFolder = Path.GetDirectoryName(vsEnvironment.Solution.FullName);
         }
 
-        public void GenerateDgmlFile(string filename)
+        public void GenerateDgmlFile(string filename, string packageFilter)
         {
+            _filterRegex = new Regex(packageFilter, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
             LoadProjects();
             LoadPackageConfig("packages.config", "package", idAttributeName.ToLower(), "version");
             LoadPackageConfig("*.csproj", "PackageReference", includeAttributeName, "Version");
@@ -244,7 +245,10 @@ namespace PackageVisualizer
                 }
                 else
                 {
-                    foreach (var pr in XDocument.Load(pk).Descendants(packageElementName))
+                    var doc = XDocument.Load(pk);
+                    var element = XName.Get(packageElementName, doc.Root.Name.NamespaceName);
+
+                    foreach (var pr in doc.Descendants(element))
                     {
                         var packageName = pr.Attribute(packageIdElement).Value;
                         var packageVersion = pr.Attribute(packageVersionElement).Value;
