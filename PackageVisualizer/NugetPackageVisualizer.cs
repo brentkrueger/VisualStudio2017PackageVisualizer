@@ -241,7 +241,10 @@ namespace PackageVisualizer
                 }
                 else
                 {
-                    foreach (var pr in XDocument.Load(pk).Descendants("package"))
+                    var doc = XDocument.Load(pk);
+                    var elementNamespace = XName.Get("package", doc.Root.Name.NamespaceName);
+
+                    foreach (var pr in XDocument.Load(pk).Descendants(elementNamespace))
                     {
                         var package = GetOrCreatePackage(pr.Attribute(idAttributeName.ToLower()).Value, pr.Attribute("version").Value, project);
                         if (!project.Packages.Any(p => p.Equals(package)))
@@ -271,7 +274,10 @@ namespace PackageVisualizer
                 }
                 else
                 {
-                    foreach (var pr in XDocument.Load(pk).Descendants("PackageReference"))
+                    var doc = XDocument.Load(pk);
+                    var elementNamespace = XName.Get("PackageReference", doc.Root.Name.NamespaceName);
+
+                    foreach (var pr in XDocument.Load(pk).Descendants(elementNamespace))
                     {
                         var package = GetOrCreatePackage(pr.Attribute(includeAttributeName).Value, pr.Attribute("Version").Value, project);
                         if (!project.Packages.Any(p => p.Equals(package)))
